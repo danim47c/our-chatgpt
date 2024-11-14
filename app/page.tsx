@@ -1,101 +1,153 @@
-import Image from "next/image";
+"use client"
+
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { useChat } from "ai/react"
+import { SendIcon } from "lucide-react"
+import { useState } from "react"
+import Markdown from "react-markdown"
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const { messages, append, addToolResult } = useChat({
+    api: "/api/chat"
+  })
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+  return (
+    <main className="grid grid-rows-[auto_1fr_auto] h-svh p-4 gap-y-4">
+      <h1 className="text-xl font-bold">Our ChatGPT</h1>
+
+      <main className="rounded-lg p-3 border flex flex-col-reverse gap-y-4 items-start overflow-y-auto">
+        {messages.toReversed().map((message) => (
+          <div key={message.id} className="space-y-1">
+            <p className="text-xs font-semibold text-muted-foreground uppercase">{message.role}</p>
+
+            {message.toolInvocations?.map((toolInvocation) => {
+              if (toolInvocation.state === "result" || "result" in toolInvocation) {
+                return (
+                  <pre key={toolInvocation.toolCallId}>{toolInvocation.toolName}</pre>
+                )
+              }
+
+              if (toolInvocation.toolName === "getUserLocation") {
+                return (
+                  <div key={toolInvocation.toolCallId} className="space-y-2">
+                    <p>¿Quieres compartir tu ubicación con el asistente?</p>
+
+                    <div className="flex justify-center gap-x-2">
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          addToolResult({
+                            toolCallId: toolInvocation.toolCallId,
+                            result: {
+                              error: "Cancelado por el usuario"
+                            }
+                          })
+                        }}>
+                        Cancelar
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          const permission = await navigator.permissions.query({ name: "geolocation" })
+                          console.log(permission)
+                          if (permission.state !== "granted") {
+                            addToolResult({
+                              toolCallId: toolInvocation.toolCallId,
+                              result: {
+                                error: "No se ha dado el acceso a la ubicación"
+                              }
+                            })
+                            return
+                          }
+                          navigator.geolocation.getCurrentPosition((position) => {
+                            addToolResult({
+                              toolCallId: toolInvocation.toolCallId,
+                              result: {
+                                location: {
+                                  latitude: position.coords.latitude,
+                                  longitude: position.coords.longitude
+                                }
+                              }
+                            })
+                          })
+                        }}>
+                        Compartir ubicación
+                      </Button>
+                    </div>
+                  </div>
+                )
+              }
+
+              return null
+            })}
+
+            {message.content && <Markdown className="prose">{message.content}</Markdown>}
+          </div>
+        ))}
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+
+      <form className="flex gap-x-2" onSubmit={(e) => {
+        e.preventDefault()
+        const formData = new FormData(e.currentTarget)
+
+        append({
+          role: "user",
+          content: formData.get("message") as string
+        })
+
+        e.currentTarget.reset()
+      }}>
+        <Input
+          name="message"
+          className="flex-1"
+          placeholder="Pregunta cualquier cosa..."
+        />
+
+        <Button type="submit" size="icon">
+          <SendIcon className="!size-5" />
+        </Button>
+      </form>
+    </main>
+  )
+}
+
+function Example() {
+  const { messages, addToolResult } = useChat({
+    api: "/api/chat"
+  })
+
+  return <div>
+    {messages.map((message) => {
+      if (message.role === "assistant") {
+        if (message.toolInvocations?.length) {
+          return <>
+            {message.toolInvocations.map((toolInvocation) => {
+              if (toolInvocation.state === "call" && !("result" in toolInvocation)) {
+                if (toolInvocation.toolName === "getDate") {
+                  return (
+                    <button
+                      key={toolInvocation.toolCallId}
+                      onClick={() => {
+                        addToolResult({
+                          toolCallId: toolInvocation.toolCallId,
+                          result: new Date().toLocaleDateString()
+                        })
+                      }}>
+                      Proveer fecha actual al usuario
+                    </button>
+                  )
+                }
+              }
+            })}
+          </>
+        }
+      }
+
+      return (
+        <p key={message.id}>
+          {message.content}
+        </p>
+      )
+    })}
+  </div>
 }
